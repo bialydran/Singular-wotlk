@@ -65,6 +65,47 @@ namespace Singular.ClassSpecific.Paladin
                 );
         }
 
+        // Ret seal for Seal = Auto, used out of combat and by every Ret rotation. Seal of Command cleaves 2 extra
+        // targets, so it's the multi-target seal and the default until Vengeance/Corruption is learned (level 64).
+        public static Composite CreateRetributionAutoSealBehavior()
+        {
+            return
+                new Decorator(
+                    ret => SingularSettings.Instance.Paladin.Seal == PaladinSeal.Auto,
+                    new PrioritySelector(
+                        Spell.BuffSelf("Seal of Command", ret => WantSealOfCommand()),
+                        Spell.BuffSelf("Seal of Vengeance", ret => !WantSealOfCommand() && !SpellManager.HasSpell("Seal of Corruption")),
+                        Spell.BuffSelf("Seal of Corruption", ret => !WantSealOfCommand()),
+                        Spell.BuffSelf("Seal of Righteousness", ret => !SpellManager.HasSpell("Seal of Command") && !HasSingleTargetSeal())
+                    )
+                );
+        }
+
+        private static bool HasSingleTargetSeal()
+        {
+            return SpellManager.HasSpell("Seal of Vengeance") || SpellManager.HasSpell("Seal of Corruption");
+        }
+
+        private static bool WantSealOfCommand()
+        {
+            if (!SpellManager.HasSpell("Seal of Command"))
+                return false;
+            if (!HasSingleTargetSeal())
+                return true;
+
+            // Only count mobs in melee range that are fighting us or the group, not every hostile nearby.
+            var target = StyxWoW.Me.CurrentTarget;
+            var cleaveTargets = Unit.NearbyUnfriendlyUnits.Count(
+                u => u.Distance <= 8 && u.Combat &&
+                     (u == target || u.IsTargetingMeOrPet || u.IsTargetingMyPartyMember || u.IsTargetingMyRaidMember));
+            if (cleaveTargets >= 2)
+                return true;
+
+            // Vengeance needs 5 stacks to pay off, so don't swap back to it on a target that's almost dead.
+            return StyxWoW.Me.Combat && StyxWoW.Me.HasAura("Seal of Command") &&
+                   target != null && target.HealthPercent < 40;
+        }
+
         [Class(WoWClass.Paladin)]
         [Behavior(BehaviorType.PreCombatBuffs)]
         [Spec(TalentSpec.RetributionPaladin)]
@@ -110,7 +151,11 @@ namespace Singular.ClassSpecific.Paladin
                                 TalentManager.CurrentSpec == TalentSpec.RetributionPaladin),
                             CreatePaladinConfiguredSealBehavior(),
                             new Decorator(
-                                ret => SingularSettings.Instance.Paladin.Seal == PaladinSeal.Auto,
+                                ret => TalentManager.CurrentSpec == TalentSpec.RetributionPaladin,
+                                CreateRetributionAutoSealBehavior()),
+                            new Decorator(
+                                ret => SingularSettings.Instance.Paladin.Seal == PaladinSeal.Auto &&
+                                       TalentManager.CurrentSpec != TalentSpec.RetributionPaladin,
                                 new PrioritySelector(
                                     Spell.BuffSelf("Seal of Vengeance", ret => !SpellManager.HasSpell("Seal of Corruption")),
                                     Spell.BuffSelf("Seal of Corruption"),
