@@ -45,6 +45,26 @@ namespace Singular.ClassSpecific.Paladin
 
     public class Common
     {
+        // Casts the seal picked in settings (no-op when Seal is Auto). Used out of combat and by the combat rotations,
+        // which only run their own seal logic when Seal is Auto.
+        public static Composite CreatePaladinConfiguredSealBehavior()
+        {
+            return
+                // Select seal added by xyFaded
+                new Decorator(
+                    ret => SingularSettings.Instance.Paladin.Seal != PaladinSeal.Auto,
+                    new PrioritySelector(
+                        Spell.BuffSelf("Seal of Command", ret => SpellManager.HasSpell("Seal of Command") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Command),
+                        Spell.BuffSelf("Seal of Corruption", ret => SpellManager.HasSpell("Seal of Corruption") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Corruption),
+                        Spell.BuffSelf("Seal of Justice", ret => SpellManager.HasSpell("Seal of Justice") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Justice),
+                        Spell.BuffSelf("Seal of Light", ret => SpellManager.HasSpell("Seal of Light") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Light),
+                        Spell.BuffSelf("Seal of Righteousness", ret => SpellManager.HasSpell("Seal of Righteousness") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Righteousness),
+                        Spell.BuffSelf("Seal of Vengeance", ret => SpellManager.HasSpell("Seal of Vengeance") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Vengeance),
+                        Spell.BuffSelf("Seal of Wisdom", ret => SpellManager.HasSpell("Seal of Wisdom") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Wisdom)
+                    )
+                );
+        }
+
         [Class(WoWClass.Paladin)]
         [Behavior(BehaviorType.PreCombatBuffs)]
         [Spec(TalentSpec.RetributionPaladin)]
@@ -88,19 +108,7 @@ namespace Singular.ClassSpecific.Paladin
                                 ret =>
                                 SingularSettings.Instance.Paladin.Aura == PaladinAura.Auto &&
                                 TalentManager.CurrentSpec == TalentSpec.RetributionPaladin),
-                            // Select seal added by xyFaded
-                            new Decorator(
-                                ret => SingularSettings.Instance.Paladin.Seal != PaladinSeal.Auto,
-                                new PrioritySelector(
-                                    Spell.BuffSelf("Seal of Command", ret => SpellManager.HasSpell("Seal of Command") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Command),
-                                    Spell.BuffSelf("Seal of Corruption", ret => SpellManager.HasSpell("Seal of Corruption") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Corruption),
-                                    Spell.BuffSelf("Seal of Justice", ret => SpellManager.HasSpell("Seal of Justice") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Justice),
-                                    Spell.BuffSelf("Seal of Light", ret => SpellManager.HasSpell("Seal of Light") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Light),
-                                    Spell.BuffSelf("Seal of Righteousness", ret => SpellManager.HasSpell("Seal of Righteousness") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Righteousness),
-                                    Spell.BuffSelf("Seal of Vengeance", ret => SpellManager.HasSpell("Seal of Vengeance") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Vengeance),
-                                    Spell.BuffSelf("Seal of Wisdom", ret => SpellManager.HasSpell("Seal of Wisdom") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Wisdom)
-                                )
-                            ),
+                            CreatePaladinConfiguredSealBehavior(),
                             new Decorator(
                                 ret => SingularSettings.Instance.Paladin.Seal == PaladinSeal.Auto,
                                 new PrioritySelector(

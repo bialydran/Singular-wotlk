@@ -64,9 +64,10 @@ namespace Singular.ClassSpecific.Paladin
                 // This is Seal of Vengeance (Alliance) / Seal of Corruption (Horde) once we get it, Righteousness when we dont.
                 // WotLK uses Seal of Wisdom for mana regen (renamed to Seal of Insight in Cata 4.0.1)
                 Spell.BuffSelf("Seal of Wisdom", ret => StyxWoW.Me.ManaPercent < 25),
-                Spell.BuffSelf("Seal of Vengeance", ret => StyxWoW.Me.ManaPercent >= 25 && !SpellManager.HasSpell("Seal of Corruption")),
-                Spell.BuffSelf("Seal of Corruption", ret => StyxWoW.Me.ManaPercent >= 25),
-                Spell.BuffSelf("Seal of Righteousness", ret => StyxWoW.Me.ManaPercent >= 25 && !SpellManager.HasSpell("Seal of Vengeance") && !SpellManager.HasSpell("Seal of Corruption")),
+                new Decorator(ret => StyxWoW.Me.ManaPercent >= 25, Common.CreatePaladinConfiguredSealBehavior()),
+                Spell.BuffSelf("Seal of Vengeance", ret => SingularSettings.Instance.Paladin.Seal == PaladinSeal.Auto && StyxWoW.Me.ManaPercent >= 25 && !SpellManager.HasSpell("Seal of Corruption")),
+                Spell.BuffSelf("Seal of Corruption", ret => SingularSettings.Instance.Paladin.Seal == PaladinSeal.Auto && StyxWoW.Me.ManaPercent >= 25),
+                Spell.BuffSelf("Seal of Righteousness", ret => SingularSettings.Instance.Paladin.Seal == PaladinSeal.Auto && StyxWoW.Me.ManaPercent >= 25 && !SpellManager.HasSpell("Seal of Vengeance") && !SpellManager.HasSpell("Seal of Corruption")),
 
                 // Defensive
                 Spell.BuffSelf("Hand of Freedom",
