@@ -45,6 +45,67 @@ namespace Singular.ClassSpecific.Paladin
 
     public class Common
     {
+        // Casts the seal picked in settings (no-op when Seal is Auto). Used out of combat and by the combat rotations,
+        // which only run their own seal logic when Seal is Auto.
+        public static Composite CreatePaladinConfiguredSealBehavior()
+        {
+            return
+                // Select seal added by xyFaded
+                new Decorator(
+                    ret => SingularSettings.Instance.Paladin.Seal != PaladinSeal.Auto,
+                    new PrioritySelector(
+                        Spell.BuffSelf("Seal of Command", ret => SpellManager.HasSpell("Seal of Command") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Command),
+                        Spell.BuffSelf("Seal of Corruption", ret => SpellManager.HasSpell("Seal of Corruption") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Corruption),
+                        Spell.BuffSelf("Seal of Justice", ret => SpellManager.HasSpell("Seal of Justice") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Justice),
+                        Spell.BuffSelf("Seal of Light", ret => SpellManager.HasSpell("Seal of Light") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Light),
+                        Spell.BuffSelf("Seal of Righteousness", ret => SpellManager.HasSpell("Seal of Righteousness") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Righteousness),
+                        Spell.BuffSelf("Seal of Vengeance", ret => SpellManager.HasSpell("Seal of Vengeance") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Vengeance),
+                        Spell.BuffSelf("Seal of Wisdom", ret => SpellManager.HasSpell("Seal of Wisdom") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Wisdom)
+                    )
+                );
+        }
+
+        // Ret seal for Seal = Auto, used out of combat and by every Ret rotation. Seal of Command cleaves 2 extra
+        // targets, so it's the multi-target seal and the default until Vengeance/Corruption is learned (level 64).
+        public static Composite CreateRetributionAutoSealBehavior()
+        {
+            return
+                new Decorator(
+                    ret => SingularSettings.Instance.Paladin.Seal == PaladinSeal.Auto,
+                    new PrioritySelector(
+                        Spell.BuffSelf("Seal of Command", ret => WantSealOfCommand()),
+                        Spell.BuffSelf("Seal of Vengeance", ret => !WantSealOfCommand() && !SpellManager.HasSpell("Seal of Corruption")),
+                        Spell.BuffSelf("Seal of Corruption", ret => !WantSealOfCommand()),
+                        Spell.BuffSelf("Seal of Righteousness", ret => !SpellManager.HasSpell("Seal of Command") && !HasSingleTargetSeal())
+                    )
+                );
+        }
+
+        private static bool HasSingleTargetSeal()
+        {
+            return SpellManager.HasSpell("Seal of Vengeance") || SpellManager.HasSpell("Seal of Corruption");
+        }
+
+        private static bool WantSealOfCommand()
+        {
+            if (!SpellManager.HasSpell("Seal of Command"))
+                return false;
+            if (!HasSingleTargetSeal())
+                return true;
+
+            // Only count mobs in melee range that are fighting us or the group, not every hostile nearby.
+            var target = StyxWoW.Me.CurrentTarget;
+            var cleaveTargets = Unit.NearbyUnfriendlyUnits.Count(
+                u => u.Distance <= 8 && u.Combat &&
+                     (u == target || u.IsTargetingMeOrPet || u.IsTargetingMyPartyMember || u.IsTargetingMyRaidMember));
+            if (cleaveTargets >= 2)
+                return true;
+
+            // Vengeance needs 5 stacks to pay off, so don't swap back to it on a target that's almost dead.
+            return StyxWoW.Me.Combat && StyxWoW.Me.HasAura("Seal of Command") &&
+                   target != null && target.HealthPercent < 40;
+        }
+
         [Class(WoWClass.Paladin)]
         [Behavior(BehaviorType.PreCombatBuffs)]
         [Spec(TalentSpec.RetributionPaladin)]
@@ -88,21 +149,13 @@ namespace Singular.ClassSpecific.Paladin
                                 ret =>
                                 SingularSettings.Instance.Paladin.Aura == PaladinAura.Auto &&
                                 TalentManager.CurrentSpec == TalentSpec.RetributionPaladin),
-                            // Select seal added by xyFaded
+                            CreatePaladinConfiguredSealBehavior(),
                             new Decorator(
-                                ret => SingularSettings.Instance.Paladin.Seal != PaladinSeal.Auto,
-                                new PrioritySelector(
-                                    Spell.BuffSelf("Seal of Command", ret => SpellManager.HasSpell("Seal of Command") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Command),
-                                    Spell.BuffSelf("Seal of Corruption", ret => SpellManager.HasSpell("Seal of Corruption") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Corruption),
-                                    Spell.BuffSelf("Seal of Justice", ret => SpellManager.HasSpell("Seal of Justice") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Justice),
-                                    Spell.BuffSelf("Seal of Light", ret => SpellManager.HasSpell("Seal of Light") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Light),
-                                    Spell.BuffSelf("Seal of Righteousness", ret => SpellManager.HasSpell("Seal of Righteousness") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Righteousness),
-                                    Spell.BuffSelf("Seal of Vengeance", ret => SpellManager.HasSpell("Seal of Vengeance") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Vengeance),
-                                    Spell.BuffSelf("Seal of Wisdom", ret => SpellManager.HasSpell("Seal of Wisdom") && SingularSettings.Instance.Paladin.Seal == PaladinSeal.Wisdom)
-                                )
-                            ),
+                                ret => TalentManager.CurrentSpec == TalentSpec.RetributionPaladin,
+                                CreateRetributionAutoSealBehavior()),
                             new Decorator(
-                                ret => SingularSettings.Instance.Paladin.Seal == PaladinSeal.Auto,
+                                ret => SingularSettings.Instance.Paladin.Seal == PaladinSeal.Auto &&
+                                       TalentManager.CurrentSpec != TalentSpec.RetributionPaladin,
                                 new PrioritySelector(
                                     Spell.BuffSelf("Seal of Vengeance", ret => !SpellManager.HasSpell("Seal of Corruption")),
                                     Spell.BuffSelf("Seal of Corruption"),
